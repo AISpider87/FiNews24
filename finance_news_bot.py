@@ -41,6 +41,19 @@ FEEDS = [f.strip() for f in os.getenv("FEEDS", "").split(",") if f.strip()] or [
     "https://www.investing.com/rss/news_25.rss",        # Investing.com - Top News
     "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best",
     "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    "https://it.investing.com/rss/forex_Technical.rss",
+    "https://it.investing.com/rss/stock_Stocks.rss",
+    "https://it.investing.com/rss/news_1064.rss",
+    "https://www.fxempire.com/api/v1/it/articles/rss/news",
+    "https://www.fxempire.com/api/v1/it/articles/rss/forecasts",
+    "https://billmitchell.org/blog/?feed=rss2",
+    "https://ritholtz.com/feed",
+    "https://eyeonhousing.org/category/macroeconomics/feed/",
+    "https://blog.supplysideliberal.com/post?format=RSS",
+    "https://www.atlantafed.org/RSS/macroblog.aspx",
+    "https://jwmason.org/the-slack-wire/feed/",
+    "https://eyeonhousing.org/category/macroeconomics/feed/",
+
 ]
 KEYWORDS = [k.strip().lower() for k in os.getenv("KEYWORDS", "").split(",") if k.strip()]  # optional
 POST_LIMIT_PER_RUN = int(os.getenv("POST_LIMIT_PER_RUN", "6"))
