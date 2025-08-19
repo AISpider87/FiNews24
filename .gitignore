@@ -1,0 +1,13 @@
+# segreti / cache / roba locale
+.env
+finance_news_cache.json
+__pycache__/
+*.pyc
+
+# editor vari
+.vscode/
+.idea/
+
+# sistemi operativi
+.DS_Store
+Thumbs.db
