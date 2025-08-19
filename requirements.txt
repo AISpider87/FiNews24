@@ -1,0 +1,6 @@
+feedparser
+requests
+python-dotenv
+python-dateutil
+pytz
+beautifulsoup4
