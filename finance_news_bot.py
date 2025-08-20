@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -19,10 +18,6 @@ import pytz
 from dotenv import load_dotenv
 
 # ====== Config & Logging ======
-# Read .env variables, forcing override of any pre-existing environment variables.
-# Without override=True, variables set in the system environment (e.g., DRY_RUN)
-# would take precedence over the .env file. This can lead to confusion when
-# adjusting DRY_RUN in the .env file if a conflicting system variable exists.
 load_dotenv(override=True)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
@@ -33,120 +28,107 @@ LLM_PROVIDER   = os.getenv("LLM_PROVIDER", "").strip()  # 'openai' to enable
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL   = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 
+# Runtime safeguards (env-configurable)
+FEED_TIMEOUT      = int(os.getenv("FEED_TIMEOUT", "12"))       # seconds
+FEED_RETRIES      = int(os.getenv("FEED_RETRIES", "2"))
+DEADLINE_SECONDS  = int(os.getenv("DEADLINE_SECONDS", "540"))  # 9 minutes
+
 # Feeds and behavior
 FEEDS = [f.strip() for f in os.getenv("FEEDS", "").split(",") if f.strip()] or [
-    # Default finance/business RSS feeds (public)
-    "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",    # WSJ Markets
-    "https://www.ft.com/?format=rss",                   # FT Top
-    "https://www.investing.com/rss/news_25.rss",        # Investing.com - Top News
-    "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best",
+    # --- Finance / Business (solidi) ---
+    "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",        # WSJ Markets (Dow Jones)
+    "https://www.ft.com/markets?format=rss",                # FT Markets
+    "https://feeds.bbci.co.uk/news/business/rss.xml",       # BBC Business
+    "https://cdn.cnn.com/cnn/.rss/edition_business.rss",    # CNN Business (CDN)
+    "https://apnews.com/hub/business?utm_source=apnews.com&utm_medium=referral&utm_campaign=ap-rss",
+    "https://economist.com/feeds/print-sections/79/finance-and-economics.xml",
+    "https://blogs.imf.org/feed/",
+    "https://www.project-syndicate.org/rss",
+    "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",
+    "https://www.theguardian.com/business/rss",
+    "https://www.theguardian.com/business/economics/rss",
+    "https://feeds.marketwatch.com/marketwatch/topstories/",
+    "https://www.marketwatch.com/rss/topstories",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.nasdaq.com/feed/rssoutbound?category=Markets",
+    "https://www.nasdaq.com/feed/rssoutbound?category=Stocks",
+    "https://www.nasdaq.com/feed/rssoutbound?category=Commodities",
+
+    # --- Italia / Europa ---
+    "https://www.ansa.it/sito/notizie/economia/economia_rss.xml",
+    "https://www.ilsole24ore.com/rss/homepage.xml",
+    "https://www.ilsole24ore.com/rss/economia.xml",
+    "https://www.repubblica.it/rss/economia/rss2.0.xml",
+    "https://www.ecb.europa.eu/rss/press.html",
+    "https://www.federalreserve.gov/feeds/press_all.xml",
+    "https://www.bankofcanada.ca/content_type/press-releases/feed/",
+
+    # --- Investing.com (varie sezioni utili) ---
+    "https://www.investing.com/rss/news_25.rss",
+    "https://www.investing.com/rss/news_1.rss",
+    "https://www.investing.com/rss/news_11.rss",
+    "https://www.investing.com/rss/news_95.rss",
+    "https://www.investing.com/rss/news_14.rss",
+    "https://www.investing.com/rss/news_301.rss",
+    "https://www.investing.com/rss/news.rss",
+
+    # --- Commodities / Energy / Metals ---
+    "https://oilprice.com/rss/main",
+    "https://www.kitco.com/rss/feeds/KitcoNews.xml",
+    "https://www.mining.com/feed/",
+
+    # --- Crypto (notizie principali) ---
     "https://www.coindesk.com/arc/outboundfeeds/rss/",
-    "https://it.investing.com/rss/forex_Technical.rss",
-    "https://it.investing.com/rss/stock_Stocks.rss",
-    "https://it.investing.com/rss/news_1064.rss",
-    "https://www.fxempire.com/api/v1/it/articles/rss/news",
-    "https://www.fxempire.com/api/v1/it/articles/rss/forecasts",
-    "https://billmitchell.org/blog/?feed=rss2",
+    "https://cointelegraph.com/rss",
+    "https://www.bitcoinmagazine.com/.rss/full/",
+    "https://news.bitcoin.com/feed/",
+    "https://blockworks.co/feed",
+    "https://www.nasdaq.com/feed/rssoutbound?category=Cryptocurrencies",
+    "https://www.coinmarketcap.com/headlines/news/feed",
+    "https://www.coingecko.com/news.atom",
+    "https://decrypt.co/feed",
+
+    # --- Macro / Blog analitici ---
+    "http://feeds.feedburner.com/CalculatedRisk",
+    "https://www.calculatedriskblog.com/feeds/posts/default",
+    "https://econbrowser.com/feed",
+    "https://marginalrevolution.com/feed",
+    "https://wolfstreet.com/feed/",
+    "https://mishtalk.com/feed",
     "https://ritholtz.com/feed",
+    "https://awealthofcommonsense.com/feed/",
+    "https://thereformedbroker.com/feed/",
+    "https://feeds.feedburner.com/EconomicsOne",
+    "https://fredblog.stlouisfed.org/feed/",
+    "https://billmitchell.org/blog/?feed=rss2",
     "https://eyeonhousing.org/category/macroeconomics/feed/",
     "https://blog.supplysideliberal.com/post?format=RSS",
     "https://www.atlantafed.org/RSS/macroblog.aspx",
     "https://jwmason.org/the-slack-wire/feed/",
-    "https://eyeonhousing.org/category/macroeconomics/feed/",
-"https://feeds.bbci.co.uk/news/business/rss.xml",
-"https://rss.cnn.com/rss/edition_business.rss",
-"http://feeds.reuters.com/reuters/businessNews",
-"http://feeds.reuters.com/reuters/marketsNews",
-"https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best",
-"https://apnews.com/rss/apf-business",
-"https://www.wsj.com/xml/rss/3_7031.xml",
-"https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
-"https://www.ft.com/?format=rss",
-"https://economist.com/feeds/print-sections/79/finance-and-economics.xml",
-"https://blogs.imf.org/feed/",
-"https://cepr.org/rss/vox-content",
-"https://investing.com/rss/news_25.rss",
-"https://investing.com/rss/news_1.rss",
-"https://investing.com/rss/news_11.rss",
-"https://investing.com/rss/news_95.rss",
-"https://investing.com/rss/news_14.rss",
-"https://investing.com/rss/news_301.rss",
-"https://www.nasdaq.com/feed/rssoutbound?category=Markets",
-"https://www.nasdaq.com/feed/rssoutbound?category=Stocks",
-"https://www.nasdaq.com/feed/rssoutbound?category=Cryptocurrencies",
-"https://www.nasdaq.com/feed/rssoutbound?category=Commodities",
-"https://oilprice.com/rss/main",
-"https://www.kitco.com/rss/feeds/KitcoNews.xml",
-"https://www.mining.com/feed/",
-"https://www.coindesk.com/arc/outboundfeeds/rss/",
-"https://cointelegraph.com/rss",
-"https://www.bitcoinmagazine.com/.rss/full/",
-"https://news.bitcoin.com/feed/",
-"https://blockworks.co/feed",
-"https://financialsamurai.com/feed/",
-"https://www.mrmoneymustache.com/feed/",
-"https://www.getrichslowly.org/feed/",
-"https://www.thesimpledollar.com/feed/",
-"https://www.nerdwallet.com/blog/feed/",
-"https://feeds.feedburner.com/Moneytalksnews",
-"https://affordanything.com/feed/",
-"https://www.kiplinger.com/kiplinger.rss",
-"http://feeds.feedburner.com/CalculatedRisk",
-"https://econbrowser.com/feed",
-"https://marginalrevolution.com/feed",
-"https://feeds.feedburner.com/nakedcapitalism",
-"https://wolfstreet.com/feed/",
-"https://mishtalk.com/feed",
-"https://ritholtz.com/feed",
-"https://awealthofcommonsense.com/feed/",
-"https://thereformedbroker.com/feed/",
-"https://feeds.feedburner.com/zerohedge/feed",
-"https://feeds.feedburner.com/EconomicsOne",
-"https://www.ansa.it/sito/notizie/economia/economia_rss.xml",
-"https://www.ansa.it/english/news/english_nr_rss.xml",
-"https://www.ilsole24ore.com/rss/homepage.xml",
-"https://www.ilsole24ore.com/rss/economia.xml",
-"https://www.repubblica.it/rss/economia/rss2.0.xml",
-"https://feeds.skynews.com/feeds/rss/business.xml",
-"https://www.theguardian.com/business/rss",
-"https://www.aljazeera.com/xml/rss/all.xml",
-"https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",
-"https://www.theguardian.com/business/economics/rss",
-"https://www.straitstimes.com/news/business/rss.xml",
-"https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6936",
-"https://www.federalreserve.gov/feeds/press_all.xml",
-"https://www.ecb.europa.eu/rss/press.html",
-"https://www.bankofcanada.ca/content_type/press-releases/feed/",
-"https://www.project-syndicate.org/rss",
-"https://feeds.feedburner.com/CalculatedRisk",
-"https://feeds.feedburner.com/Economist-sView",
-"https://www.ft.com/feeds/rss/markets",
-"https://www.ft.com/markets?format=rss",
-"https://feeds.marketwatch.com/marketwatch/topstories/",
-"https://www.investing.com/rss/news.rss",
-"https://www.cnbc.com/id/100003114/device/rss/rss.html",
-"https://www.forbes.com/finance/feed/",
-"https://www.marketwatch.com/rss/topstories",
-"https://www.businessinsider.com/rss",
-"https://feeds.feedburner.com/businessinsider",
-"https://www.thestreet.com/.rss/full/",
-"https://www.yahoo.com/news/tagged/finance/rss",
-"https://www.politico.com/rss/politics-economy.xml",
-"https://freakonomics.com/feed/",
-"https://economix.blogs.nytimes.com/feed/",
-"https://ftalphaville.ft.com/blog/feed/",
-"https://www.coinmarketcap.com/headlines/news/feed",
-"https://www.coingecko.com/news.atom",
-"https://www.calculatedriskblog.com/feeds/posts/default",
-"https://www.ft.com/ft-editors-picks/rss",
-"https://fredblog.stlouisfed.org/feed/",
-"https://decrypt.co/feed",
 
+    # --- Personal finance (selezione leggera) ---
+    "https://financialsamurai.com/feed/",
+    "https://www.mrmoneymustache.com/feed/",
+    "https://www.getrichslowly.org/feed/",
+    "https://www.thesimpledollar.com/feed/",
+    "https://www.nerdwallet.com/blog/feed/",
+    "https://feeds.feedburner.com/Moneytalksnews",
+    "https://affordanything.com/feed/",
+    "https://www.kiplinger.com/kiplinger.rss",
+
+    # --- Altre testate globali ---
+    "https://www.aljazeera.com/xml/rss/all.xml",
+    "https://www.straitstimes.com/news/business/rss.xml",
+    "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6936",
+
+    # --- FT aggiuntivi (ok se duplicazioni minime) ---
+    "https://www.ft.com/ft-editors-picks/rss",
 ]
+
 KEYWORDS = [k.strip().lower() for k in os.getenv("KEYWORDS", "").split(",") if k.strip()]  # optional
 POST_LIMIT_PER_RUN = int(os.getenv("POST_LIMIT_PER_RUN", "6"))
 MAX_SUMMARY_LEN    = int(os.getenv("MAX_SUMMARY_LEN", "240"))
-FRESHNESS_MINUTES  = int(os.getenv("FRESHNESS_MINUTES", "360"))  # consider items fresh if within last X minutes
+FRESHNESS_MINUTES  = int(os.getenv("FRESHNESS_MINUTES", "360"))
 DRY_RUN            = os.getenv("DRY_RUN", "true").lower() == "true"
 CACHE_PATH         = os.getenv("CACHE_PATH", "finance_news_cache.json")
 
@@ -159,7 +141,7 @@ logging.basicConfig(
 
 # ====== Agents ======
 class FeedAgent:
-    def __init__(self, timeout=12, retries=2):
+    def __init__(self, timeout: int = FEED_TIMEOUT, retries: int = FEED_RETRIES):
         self.timeout = timeout
         self.retries = retries
         self.session = requests.Session()
@@ -174,12 +156,11 @@ class FeedAgent:
 
     def fetch(self, url: str) -> List[Dict]:
         logging.info(f"Fetching feed: {url}")
-        for attempt in range(1, self.retries + 2):  # es. 1 tentativo + 2 retry
+        for attempt in range(1, self.retries + 2):  # 1 tentativo + retries
             try:
                 r = self.session.get(url, timeout=self.timeout)
                 r.raise_for_status()
-                # Passo i bytes al parser: migliore tolleranza a Content-Type strani / HTML
-                parsed = feedparser.parse(r.content)
+                parsed = feedparser.parse(r.content)  # bytes → parser (più tollerante)
                 if getattr(parsed, "bozo", False) and getattr(parsed, "bozo_exception", None):
                     logging.warning(f"Feed parsing warning ({url}): {parsed.bozo_exception}")
                 return parsed.entries or []
@@ -191,7 +172,6 @@ class FeedAgent:
                 logging.error(f"Feed fetch error ({url}): {e}")
                 return []
 
-
 class FilterAgent:
     def __init__(self, keywords: List[str], tz, freshness_minutes: int = 360):
         self.keywords = [k.lower() for k in keywords]
@@ -199,7 +179,6 @@ class FilterAgent:
         self.freshness = timedelta(minutes=freshness_minutes)
 
     def _is_fresh(self, entry) -> bool:
-        # Try published/updated; fall back to now
         now = datetime.now(self.tz)
         published = None
         for field in ("published", "updated", "created"):
@@ -214,8 +193,7 @@ class FilterAgent:
                 except Exception:
                     pass
         if not published:
-            return True  # if no date, don't discard
-
+            return True
         return (now - published) <= self.freshness
 
     def _matches_keywords(self, title: str, summary: str) -> bool:
@@ -285,7 +263,6 @@ class SummarizerAgent:
 
     def _openai_chat(self, text: str) -> Optional[str]:
         try:
-            import requests
             url = "https://api.openai.com/v1/chat/completions"
             headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
             body = {
@@ -310,19 +287,14 @@ class SummarizerAgent:
 
     def summarize(self, title: str, summary: str) -> str:
         text = f"{title}. {self._strip_html(summary)}"
-        # LLM path
         if self.provider == "openai" and self.api_key:
-            res = self._openai_chat(text[:3000])  # cap input
+            res = self._openai_chat(text[:3000])
             if res:
                 return res[: self.max_len]
-
-        # fallback: take first sentence-ish of summary or just the title
         s = self._strip_html(summary)
         if not s:
             return title[: self.max_len]
-        # naive: first 240 chars
-        blurb = s[: self.max_len]
-        return blurb
+        return s[: self.max_len]
 
 class PublisherAgent:
     def __init__(self, token: str, chat_id: str, dry_run: bool = True):
@@ -368,50 +340,45 @@ def build_post(entry, summarizer: SummarizerAgent) -> str:
     return "\n\n".join(parts)
 
 def _sort_key(e):
-    """
-    Sorting helper for news entries. It attempts to parse the
-    `published`, `updated` or `created` fields and returns a
-    timezone-aware UTC datetime. If parsing fails or no date is
-    available, it returns the current time in UTC. This ensures
-    consistent sorting without mixing naive and aware datetimes.
-    """
     for field in ("published", "updated", "created"):
         v = e.get(field)
         if v:
             try:
                 dt = dateparser.parse(v)
-                # If the date has no timezone, localize it to the configured TZ
                 if not dt.tzinfo:
                     dt = TZ.localize(dt)
-                # Always convert to UTC for sorting
                 return dt.astimezone(pytz.UTC)
             except Exception:
                 pass
-    # Fallback: current time in UTC
     return datetime.now(pytz.UTC)
 
 def main():
-    feed_agent   = FeedAgent()
+    deadline = time.time() + DEADLINE_SECONDS
+
+    feed_agent   = FeedAgent(timeout=FEED_TIMEOUT, retries=FEED_RETRIES)
     filter_agent = FilterAgent(KEYWORDS, TZ, FRESHNESS_MINUTES)
     dedup        = DedupAgent(CACHE_PATH)
     summarizer   = SummarizerAgent(LLM_PROVIDER, OPENAI_API_KEY, OPENAI_MODEL, MAX_SUMMARY_LEN)
-    # The PublisherAgent accepts a `dry_run` boolean; pass the evaluated DRY_RUN
-    # from the environment or override it here. Use lowercase parameter name
-    # and Python boolean `False` instead of the undefined `false`.
     publisher    = PublisherAgent(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, dry_run=DRY_RUN)
 
     collected: List[Dict] = []
     for f in FEEDS:
+        if time.time() > deadline:
+            logging.warning("Deadline reached while fetching feeds. Stopping early.")
+            break
         entries = feed_agent.fetch(f)
         fresh   = filter_agent.filter(entries)
         for e in fresh:
             if dedup.is_new(e):
                 collected.append(e)
-    # Sort by published date descending using the helper
+
     collected = sorted(collected, key=_sort_key, reverse=True)
 
     posted = 0
     for e in collected:
+        if time.time() > deadline:
+            logging.warning("Deadline reached while posting. Stopping early.")
+            break
         if posted >= POST_LIMIT_PER_RUN:
             break
         text = build_post(e, summarizer)
