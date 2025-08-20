@@ -33,6 +33,59 @@ FEED_TIMEOUT      = int(os.getenv("FEED_TIMEOUT", "12"))       # seconds
 FEED_RETRIES      = int(os.getenv("FEED_RETRIES", "2"))
 DEADLINE_SECONDS  = int(os.getenv("DEADLINE_SECONDS", "540"))  # 9 minutes
 
+# ====== Thematic filtering (ENV-overridable) ======
+def _split_env_list(name: str, default_items: List[str]) -> List[str]:
+    raw = os.getenv(name, "")
+    items = [x.strip().lower() for x in raw.split(",") if x.strip()]
+    return items or default_items
+
+# parole/temi da ESCLUDERE (default mirato a religione/cronaca)
+NEGATIVE_KEYWORDS = _split_env_list("NEGATIVE_KEYWORDS", [
+    "papa","vaticano","chiesa","religione","vescovo","santo padre",
+    "omicidio","rapina","arrestato","cronaca","assassino","spari","sparatoria",
+    "sequestro","violenza","stupro","femminicidio","latitante","inchiesta giudiziaria",
+    "gossip","spettacolo","vip","celebrity","reality","calcio","serie a","sport",
+])
+
+# parole economico-finanziarie per INCLUDERE
+ECON_KEYWORDS = _split_env_list("ECON_KEYWORDS", [
+    # ITA
+    "pil","inflazione","deflazione","tassi","bce","federal reserve","fed","banca centrale",
+    "spread","debito","obbligazioni","titoli di stato","btp","bund","mercati","borsa",
+    "azioni","azionario","obbligazionario","derivati","futures","opzioni","volatilità",
+    "commodities","materie prime","petrolio","gas","oro","rame","wti","brent",
+    "bilancio","utile","ricavi","utile per azione","eps","guidance","dividendo",
+    "pmi","indice pmi","occupazione","disoccupazione","cpi","ppi","pil trimestrale",
+    "gdp","indice","indice dei prezzi","bilancia commerciale","partite correnti",
+    "criptovalute","bitcoin","ethereum","cripto","defi","stablecoin",
+    # ENG
+    "inflation","deflation","interest rate","rates","central bank","ecb","fed",
+    "treasury","yield","bond","government bond","equities","stocks","stock market",
+    "earnings","revenue","guidance","dividend","commodity","oil","gas","gold","copper",
+    "pmi","employment","unemployment","cpi","ppi","gdp","trade balance","current account",
+    "bitcoin","ethereum","crypto","defi","stablecoin",
+])
+
+# domini affidabili: se la notizia proviene da qui, passa anche senza keyword
+WHITELIST_DOMAINS = _split_env_list("WHITELIST_DOMAINS", [
+    # global
+    "ft.com","economist.com","bbc.co.uk","cnn.com","apnews.com","nytimes.com",
+    "theguardian.com","marketwatch.com","nasdaq.com","cnbc.com","coindesk.com",
+    "cointelegraph.com","bitcoinmagazine.com","oilprice.com","kitco.com","mining.com",
+    "project-syndicate.org","coingecko.com","coinmarketcap.com","decrypt.co",
+    # it/eu
+    "ilsole24ore.com","ansa.it","repubblica.it","ecb.europa.eu","federalreserve.gov",
+    "bankofcanada.ca",
+    # blog/analisi
+    "calculatedriskblog.com","econbrowser.com","marginalrevolution.com",
+    "wolfstreet.com","mishtalk.com","ritholtz.com","awealthofcommonsense.com",
+    "thereformedbroker.com","fredblog.stlouisfed.org","billmitchell.org","eyeonhousing.org",
+    "supplysideliberal.com","atlantafed.org","jwmason.org",
+])
+
+# richiedi sempre parole economiche, a meno che il dominio sia whitelisted
+REQUIRE_ECON_KEYWORDS = os.getenv("REQUIRE_ECON_KEYWORDS", "true").lower() == "true"
+
 # Feeds and behavior
 FEEDS = [f.strip() for f in os.getenv("FEEDS", "").split(",") if f.strip()] or [
     # --- Finance / Business (solidi) ---
@@ -125,7 +178,7 @@ FEEDS = [f.strip() for f in os.getenv("FEEDS", "").split(",") if f.strip()] or [
     "https://www.ft.com/ft-editors-picks/rss",
 ]
 
-KEYWORDS = [k.strip().lower() for k in os.getenv("KEYWORDS", "").split(",") if k.strip()]  # optional
+KEYWORDS = [k.strip().lower() for k in os.getenv("KEYWORDS", "").split(",") if k.strip()]  # optional extra-positive
 POST_LIMIT_PER_RUN = int(os.getenv("POST_LIMIT_PER_RUN", "6"))
 MAX_SUMMARY_LEN    = int(os.getenv("MAX_SUMMARY_LEN", "240"))
 FRESHNESS_MINUTES  = int(os.getenv("FRESHNESS_MINUTES", "360"))
@@ -174,9 +227,23 @@ class FeedAgent:
 
 class FilterAgent:
     def __init__(self, keywords: List[str], tz, freshness_minutes: int = 360):
-        self.keywords = [k.lower() for k in keywords]
+        self.keywords = [k.lower() for k in keywords]  # extra-positive (opzionale)
         self.tz = tz
         self.freshness = timedelta(minutes=freshness_minutes)
+
+    @staticmethod
+    def _entry_text(entry: Dict) -> str:
+        title = entry.get("title", "") or ""
+        summary = BeautifulSoup(entry.get("summary", "") or "", "html.parser").get_text(" ", strip=True)
+        tags = " ".join((t.get("term") or "") for t in entry.get("tags", []) if isinstance(t, dict))
+        return f"{title} {summary} {tags}".lower()
+
+    @staticmethod
+    def _entry_domain(entry: Dict) -> str:
+        link = entry.get("link", "") or ""
+        dom = urlparse(link).netloc.replace("www.", "").lower()
+        # normalizza alcuni CDN noti
+        return dom
 
     def _is_fresh(self, entry) -> bool:
         now = datetime.now(self.tz)
@@ -196,23 +263,43 @@ class FilterAgent:
             return True
         return (now - published) <= self.freshness
 
-    def _matches_keywords(self, title: str, summary: str) -> bool:
+    def _has_negative(self, text: str) -> bool:
+        return any(neg in text for neg in NEGATIVE_KEYWORDS)
+
+    def _is_economic(self, text: str, domain: str) -> bool:
+        if domain in WHITELIST_DOMAINS:
+            return True
+        return any(k in text for k in ECON_KEYWORDS)
+
+    def _matches_user_keywords(self, text: str) -> bool:
         if not self.keywords:
             return True
-        text = f"{title} {summary}".lower()
         return any(k in text for k in self.keywords)
 
     def filter(self, entries: List[Dict]) -> List[Dict]:
         out = []
         for e in entries:
-            title = e.get("title", "").strip()
-            summary = BeautifulSoup(e.get("summary", "") or "", "html.parser").get_text().strip()
+            title = (e.get("title") or "").strip()
             if not title:
                 continue
             if not self._is_fresh(e):
                 continue
-            if not self._matches_keywords(title, summary):
+
+            text = self._entry_text(e)
+            domain = self._entry_domain(e)
+
+            # filtro negativo (religione/cronaca/gossip/sport ecc.)
+            if self._has_negative(text):
                 continue
+
+            # filtro tematico economico
+            if REQUIRE_ECON_KEYWORDS and not self._is_economic(text, domain):
+                continue
+
+            # eventuali keyword utente extra
+            if not self._matches_user_keywords(text):
+                continue
+
             out.append(e)
         return out
 
