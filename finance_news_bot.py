@@ -159,16 +159,38 @@ logging.basicConfig(
 
 # ====== Agents ======
 class FeedAgent:
+    def __init__(self, timeout=12, retries=2):
+        self.timeout = timeout
+        self.retries = retries
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/124.0 Safari/537.36 FinanceNewsBot/1.0",
+            "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5",
+            "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Connection": "close",
+        })
+
     def fetch(self, url: str) -> List[Dict]:
         logging.info(f"Fetching feed: {url}")
-        try:
-            d = feedparser.parse(url)
-            if d.bozo and d.bozo_exception:
-                logging.warning(f"Feed parsing warning: {d.bozo_exception}")
-            return d.entries or []
-        except Exception as e:
-            logging.error(f"Feed fetch error: {e}")
-            return []
+        for attempt in range(1, self.retries + 2):  # es. 1 tentativo + 2 retry
+            try:
+                r = self.session.get(url, timeout=self.timeout)
+                r.raise_for_status()
+                # Passo i bytes al parser: migliore tolleranza a Content-Type strani / HTML
+                parsed = feedparser.parse(r.content)
+                if getattr(parsed, "bozo", False) and getattr(parsed, "bozo_exception", None):
+                    logging.warning(f"Feed parsing warning ({url}): {parsed.bozo_exception}")
+                return parsed.entries or []
+            except Exception as e:
+                if attempt <= self.retries:
+                    logging.info(f"Retry {attempt}/{self.retries} on {url} due to: {e}")
+                    time.sleep(1.5)
+                    continue
+                logging.error(f"Feed fetch error ({url}): {e}")
+                return []
+
 
 class FilterAgent:
     def __init__(self, keywords: List[str], tz, freshness_minutes: int = 360):
