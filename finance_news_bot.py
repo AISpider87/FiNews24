@@ -24,22 +24,22 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
 # Optional LLM
-LLM_PROVIDER   = os.getenv("LLM_PROVIDER", "").strip()  # 'openai' to enable
+LLM_PROVIDER   = os.getenv("LLM_PROVIDER", "").strip()  # 'openai' per abilitare
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL   = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+COMMENT_MODEL  = os.getenv("COMMENT_MODEL", OPENAI_MODEL).strip()
 
 # Runtime safeguards (env-configurable)
 FEED_TIMEOUT      = int(os.getenv("FEED_TIMEOUT", "12"))       # seconds
 FEED_RETRIES      = int(os.getenv("FEED_RETRIES", "2"))
 DEADLINE_SECONDS  = int(os.getenv("DEADLINE_SECONDS", "540"))  # 9 minutes
 
-# ====== Thematic filtering (ENV-overridable) ======
+# Thematic filtering (ENV-overridable)
 def _split_env_list(name: str, default_items: List[str]) -> List[str]:
     raw = os.getenv(name, "")
     items = [x.strip().lower() for x in raw.split(",") if x.strip()]
     return items or default_items
 
-# parole/temi da ESCLUDERE (default mirato a religione/cronaca)
 NEGATIVE_KEYWORDS = _split_env_list("NEGATIVE_KEYWORDS", [
     "papa","vaticano","chiesa","religione","vescovo","santo padre",
     "omicidio","rapina","arrestato","cronaca","assassino","spari","sparatoria",
@@ -47,14 +47,13 @@ NEGATIVE_KEYWORDS = _split_env_list("NEGATIVE_KEYWORDS", [
     "gossip","spettacolo","vip","celebrity","reality","calcio","serie a","sport",
 ])
 
-# parole economico-finanziarie per INCLUDERE
 ECON_KEYWORDS = _split_env_list("ECON_KEYWORDS", [
     # ITA
     "pil","inflazione","deflazione","tassi","bce","federal reserve","fed","banca centrale",
     "spread","debito","obbligazioni","titoli di stato","btp","bund","mercati","borsa",
     "azioni","azionario","obbligazionario","derivati","futures","opzioni","volatilità",
     "commodities","materie prime","petrolio","gas","oro","rame","wti","brent",
-    "bilancio","utile","ricavi","utile per azione","eps","guidance","dividendo",
+    "bilancio","utile","ricavi","eps","guidance","dividendo",
     "pmi","indice pmi","occupazione","disoccupazione","cpi","ppi","pil trimestrale",
     "gdp","indice","indice dei prezzi","bilancia commerciale","partite correnti",
     "criptovalute","bitcoin","ethereum","cripto","defi","stablecoin",
@@ -66,33 +65,37 @@ ECON_KEYWORDS = _split_env_list("ECON_KEYWORDS", [
     "bitcoin","ethereum","crypto","defi","stablecoin",
 ])
 
-# domini affidabili: se la notizia proviene da qui, passa anche senza keyword
 WHITELIST_DOMAINS = _split_env_list("WHITELIST_DOMAINS", [
-    # global
     "ft.com","economist.com","bbc.co.uk","cnn.com","apnews.com","nytimes.com",
     "theguardian.com","marketwatch.com","nasdaq.com","cnbc.com","coindesk.com",
     "cointelegraph.com","bitcoinmagazine.com","oilprice.com","kitco.com","mining.com",
     "project-syndicate.org","coingecko.com","coinmarketcap.com","decrypt.co",
-    # it/eu
     "ilsole24ore.com","ansa.it","repubblica.it","ecb.europa.eu","federalreserve.gov",
-    "bankofcanada.ca",
-    # blog/analisi
-    "calculatedriskblog.com","econbrowser.com","marginalrevolution.com",
+    "bankofcanada.ca","calculatedriskblog.com","econbrowser.com","marginalrevolution.com",
     "wolfstreet.com","mishtalk.com","ritholtz.com","awealthofcommonsense.com",
     "thereformedbroker.com","fredblog.stlouisfed.org","billmitchell.org","eyeonhousing.org",
     "supplysideliberal.com","atlantafed.org","jwmason.org",
 ])
 
-# richiedi sempre parole economiche, a meno che il dominio sia whitelisted
 REQUIRE_ECON_KEYWORDS = os.getenv("REQUIRE_ECON_KEYWORDS", "true").lower() == "true"
+
+# Social: Twitter/X (facoltativo)
+ENABLE_TWITTER = os.getenv("ENABLE_TWITTER", "false").lower() == "true"
+TWITTER_API_KEY       = os.getenv("TWITTER_API_KEY", "").strip()
+TWITTER_API_SECRET    = os.getenv("TWITTER_API_SECRET", "").strip()
+TWITTER_ACCESS_TOKEN  = os.getenv("TWITTER_ACCESS_TOKEN", "").strip()
+TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET", "").strip()
+
+# Hashtag
+HASHTAGS_BASE = os.getenv("HASHTAGS_BASE", "#borsa #mercati #crypto #bitcoin #inflazione #wallstreet")
 
 # Feeds and behavior
 FEEDS = [f.strip() for f in os.getenv("FEEDS", "").split(",") if f.strip()] or [
     # --- Finance / Business (solidi) ---
-    "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",        # WSJ Markets (Dow Jones)
-    "https://www.ft.com/markets?format=rss",                # FT Markets
-    "https://feeds.bbci.co.uk/news/business/rss.xml",       # BBC Business
-    "https://cdn.cnn.com/cnn/.rss/edition_business.rss",    # CNN Business (CDN)
+    "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+    "https://www.ft.com/markets?format=rss",
+    "https://feeds.bbci.co.uk/news/business/rss.xml",
+    "https://cdn.cnn.com/cnn/.rss/edition_business.rss",
     "https://apnews.com/hub/business?utm_source=apnews.com&utm_medium=referral&utm_campaign=ap-rss",
     "https://economist.com/feeds/print-sections/79/finance-and-economics.xml",
     "https://blogs.imf.org/feed/",
@@ -174,7 +177,7 @@ FEEDS = [f.strip() for f in os.getenv("FEEDS", "").split(",") if f.strip()] or [
     "https://www.straitstimes.com/news/business/rss.xml",
     "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6936",
 
-    # --- FT aggiuntivi (ok se duplicazioni minime) ---
+    # --- FT aggiuntivi ---
     "https://www.ft.com/ft-editors-picks/rss",
 ]
 
@@ -209,11 +212,11 @@ class FeedAgent:
 
     def fetch(self, url: str) -> List[Dict]:
         logging.info(f"Fetching feed: {url}")
-        for attempt in range(1, self.retries + 2):  # 1 tentativo + retries
+        for attempt in range(1, self.retries + 2):
             try:
                 r = self.session.get(url, timeout=self.timeout)
                 r.raise_for_status()
-                parsed = feedparser.parse(r.content)  # bytes → parser (più tollerante)
+                parsed = feedparser.parse(r.content)
                 if getattr(parsed, "bozo", False) and getattr(parsed, "bozo_exception", None):
                     logging.warning(f"Feed parsing warning ({url}): {parsed.bozo_exception}")
                 return parsed.entries or []
@@ -227,7 +230,7 @@ class FeedAgent:
 
 class FilterAgent:
     def __init__(self, keywords: List[str], tz, freshness_minutes: int = 360):
-        self.keywords = [k.lower() for k in keywords]  # extra-positive (opzionale)
+        self.keywords = [k.lower() for k in keywords]
         self.tz = tz
         self.freshness = timedelta(minutes=freshness_minutes)
 
@@ -241,9 +244,7 @@ class FilterAgent:
     @staticmethod
     def _entry_domain(entry: Dict) -> str:
         link = entry.get("link", "") or ""
-        dom = urlparse(link).netloc.replace("www.", "").lower()
-        # normalizza alcuni CDN noti
-        return dom
+        return urlparse(link).netloc.replace("www.", "").lower()
 
     def _is_fresh(self, entry) -> bool:
         now = datetime.now(self.tz)
@@ -288,15 +289,10 @@ class FilterAgent:
             text = self._entry_text(e)
             domain = self._entry_domain(e)
 
-            # filtro negativo (religione/cronaca/gossip/sport ecc.)
             if self._has_negative(text):
                 continue
-
-            # filtro tematico economico
             if REQUIRE_ECON_KEYWORDS and not self._is_economic(text, domain):
                 continue
-
-            # eventuali keyword utente extra
             if not self._matches_user_keywords(text):
                 continue
 
@@ -383,6 +379,135 @@ class SummarizerAgent:
             return title[: self.max_len]
         return s[: self.max_len]
 
+class CommentAgent:
+    """Genera un breve commento/analisi con GPT."""
+    def __init__(self, provider: str = "", api_key: str = "", model: str = "gpt-4o-mini", max_len: int = 240):
+        self.provider = provider
+        self.api_key = api_key
+        self.model = model
+        self.max_len = max_len
+
+    def _openai_chat(self, title: str, source: str, summary_text: str) -> Optional[str]:
+        try:
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+            prompt = (
+                "Scrivi UNA sola riga di analisi rapida (tono sobrio, 1 implicazione pratica per investitori, "
+                "no esagerazioni, no consigli finanziari). Max 220 caratteri.\n\n"
+                f"Titolo: {title}\nFonte: {source}\nContenuto: {summary_text[:1000]}"
+            )
+            body = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": "Sei un analista finanziario sintetico e neutrale."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.4,
+                "max_tokens": 120
+            }
+            r = requests.post(url, headers=headers, json=body, timeout=30)
+            r.raise_for_status()
+            return r.json()["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logging.warning(f"LLM comment error: {e}")
+            return None
+
+    @staticmethod
+    def _strip_html(text: str) -> str:
+        return BeautifulSoup(text or "", "html.parser").get_text(" ", strip=True)
+
+    def comment(self, title: str, source: str, summary_html: str) -> Optional[str]:
+        if self.provider != "openai" or not self.api_key:
+            return None
+        clean = self._strip_html(summary_html)
+        out = self._openai_chat(title, source, clean)
+        if not out:
+            return None
+        return out[: self.max_len]
+
+class HashtagAgent:
+    """Hashtag fissi + dinamici in base al contenuto."""
+    DYNAMIC_MAP = {
+        "#bitcoin": ["bitcoin", "btc"],
+        "#ethereum": ["ethereum", "eth"],
+        "#crypto": ["crypto", "criptovalute", "defi", "stablecoin"],
+        "#inflazione": ["inflazione", "inflation", "cpi", "ppi"],
+        "#tassi": ["tassi", "rates", "interest rate", "bce", "ecb", "fed", "federal reserve", "yield", "treasury"],
+        "#petrolio": ["petrolio", "oil", "brent", "wti"],
+        "#oro": ["oro", "gold"],
+        "#azioni": ["azioni", "stocks", "equities", "borsa", "stock market"],
+        "#obbligazioni": ["obbligazioni", "bond", "bund", "btp", "treasury"],
+        "#materieprime": ["commodities", "materie prime", "rame", "gas", "copper"],
+        "#mercati": ["mercati", "markets", "wall street", "wallstreet"],
+    }
+
+    def __init__(self, base: str):
+        # normalizza base in lista
+        self.base = [h if h.startswith("#") else f"#{h}" for h in base.split() if h.strip()]
+
+    def gen(self, text_for_tags: str, max_total: int = 10) -> str:
+        text_l = text_for_tags.lower()
+        dynamic = []
+        for tag, keys in self.DYNAMIC_MAP.items():
+            if any(k in text_l for k in keys):
+                dynamic.append(tag)
+        # rimuovi duplicati preservando ordine
+        seen = set()
+        out = []
+        for h in self.base + dynamic:
+            if h not in seen:
+                seen.add(h)
+                out.append(h)
+            if len(out) >= max_total:
+                break
+        return " ".join(out)
+
+class TwitterAgent:
+    """Pubblica su Twitter/X (facoltativo)."""
+    def __init__(self, enabled: bool, api_key: str, api_secret: str, access_token: str, access_secret: str, dry_run: bool):
+        self.enabled = enabled and all([api_key, api_secret, access_token, access_secret])
+        self.dry_run = dry_run
+        self.client = None
+        if self.enabled:
+            try:
+                import tweepy  # type: ignore
+                auth = tweepy.OAuth1UserHandler(api_key, api_secret, access_token, access_secret)
+                self.client = tweepy.API(auth)
+            except Exception as e:
+                logging.error(f"Twitter init error: {e}")
+                self.enabled = False
+
+    @staticmethod
+    def _trim_for_tweet(title: str, link: str, hashtags: str, limit: int = 280) -> str:
+        base = f"{title} {link}".strip()
+        # aggiungi 2-3 hashtag solo se c'è spazio
+        tags = " " + " ".join(hashtags.split()[:3]) if hashtags else ""
+        text = (base + tags).strip()
+        if len(text) <= limit:
+            return text
+        # taglia titolo se necessario
+        cut = limit - len(link) - len(tags) - 1
+        if cut < 10:
+            # niente hashtag se spazio troppo poco
+            tags = ""
+            cut = limit - len(link) - 1
+        short_title = (title[:cut-1] + "…") if len(title) > cut else title
+        return f"{short_title} {link}{tags}"
+
+    def post(self, title: str, link: str, hashtags: str):
+        if not self.enabled:
+            return {"ok": True, "skipped": True}
+        text = self._trim_for_tweet(title, link, hashtags)
+        if self.dry_run:
+            logging.info("[DRY_RUN] Tweet simulato:\n" + text)
+            return {"ok": True, "dry_run": True}
+        try:
+            self.client.update_status(status=text)
+            return {"ok": True}
+        except Exception as e:
+            logging.error(f"Twitter post error: {e}")
+            return {"ok": False, "error": str(e)}
+
 class PublisherAgent:
     def __init__(self, token: str, chat_id: str, dry_run: bool = True):
         self.token = token
@@ -410,21 +535,37 @@ class PublisherAgent:
         return data
 
 # ====== Orchestrator ======
-def build_post(entry, summarizer: SummarizerAgent) -> str:
+def build_post(entry, summarizer: 'SummarizerAgent', commenter: 'CommentAgent', hashtagger: 'HashtagAgent') -> Dict[str, str]:
     title = entry.get("title", "").strip()
     link  = entry.get("link", "").strip()
-    summary = entry.get("summary", "").strip()
+    summary_html = entry.get("summary", "") or ""
     source = urlparse(link).netloc.replace("www.", "") if link else ""
 
-    blurb = summarizer.summarize(title, summary)
+    # riassunto (frase)
+    blurb = summarizer.summarize(title, summary_html)
+
+    # analisi/commento (1 riga)
+    comment = commenter.comment(title, source, summary_html) if commenter else None
+
+    # hashtag
+    base_text_for_tags = f"{title} {BeautifulSoup(summary_html, 'html.parser').get_text(' ', strip=True)} {source}"
+    hashtags = hashtagger.gen(base_text_for_tags)
+
+    # testo Telegram
     parts = [f"📰 {title}"]
     if blurb and blurb.lower() not in title.lower():
         parts.append(blurb)
+    if comment:
+        parts.append(f"💬 Analisi: {comment}")
     if source:
         parts.append(f"Fonte: {source}")
     if link:
         parts.append(link)
-    return "\n\n".join(parts)
+    if hashtags:
+        parts.append(hashtags)
+    post_text = "\n\n".join(parts)
+
+    return {"post_text": post_text, "title": title, "link": link, "hashtags": hashtags}
 
 def _sort_key(e):
     for field in ("published", "updated", "created"):
@@ -446,7 +587,10 @@ def main():
     filter_agent = FilterAgent(KEYWORDS, TZ, FRESHNESS_MINUTES)
     dedup        = DedupAgent(CACHE_PATH)
     summarizer   = SummarizerAgent(LLM_PROVIDER, OPENAI_API_KEY, OPENAI_MODEL, MAX_SUMMARY_LEN)
+    commenter    = CommentAgent(LLM_PROVIDER, OPENAI_API_KEY, COMMENT_MODEL, max_len=220)
+    hashtagger   = HashtagAgent(HASHTAGS_BASE)
     publisher    = PublisherAgent(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, dry_run=DRY_RUN)
+    twitter      = TwitterAgent(ENABLE_TWITTER, TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET, dry_run=DRY_RUN)
 
     collected: List[Dict] = []
     for f in FEEDS:
@@ -468,12 +612,21 @@ def main():
             break
         if posted >= POST_LIMIT_PER_RUN:
             break
-        text = build_post(e, summarizer)
+
+        built = build_post(e, summarizer, commenter, hashtagger)
+        text  = built["post_text"]
+        title = built["title"]
+        link  = built["link"]
+        tags  = built["hashtags"]
+
         try:
             publisher.post(text)
+            # Tweet (facoltativo)
+            if link:
+                twitter.post(title, link, tags)
             dedup.mark(e)
             posted += 1
-            time.sleep(2)  # be nice to Telegram API
+            time.sleep(2)  # be nice to APIs
         except Exception as ex:
             logging.error(f"Post failed: {ex}")
             continue
