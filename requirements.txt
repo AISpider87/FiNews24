@@ -4,3 +4,5 @@ python-dotenv
 python-dateutil
 pytz
 beautifulsoup4
+tweepy>=4.14.0
+
